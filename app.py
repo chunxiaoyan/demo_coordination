@@ -32,7 +32,7 @@ def parser_rapport(texte: str):
     def ajouter_bloc():
         nonlocal phrase, messages
         if phrase:
-            blocs.append({"phrase": phrase, "messages": messages})
+            blocs.append({"phrase": phrase, "messages": messages[:]})
         phrase = None
         messages = []
 
@@ -68,56 +68,73 @@ def extraire_original(texte: str) -> str:
     return "\n\n".join(lignes)
 
 
+# ----------------- État Streamlit -----------------
+if "analyse_lancee" not in st.session_state:
+    st.session_state.analyse_lancee = False
+
 # ----------------- Interface -----------------
 st.title("Détection automatique des erreurs de coordination")
 st.caption("Démonstration de l’interface – aucune analyse réelle n’est effectuée")
 
-st.file_uploader(
+fichier = st.file_uploader(
     "Importer un fichier (PDF ou TXT)",
     type=["pdf", "txt"],
     help="Dans cette démonstration, le fichier importé n’est pas analysé."
 )
 
-rapport = DEMO_TEXTE_DETECTE
-blocs = parser_rapport(rapport)
-original = extraire_original(rapport)
+col_btn, col_hint = st.columns([1, 4], vertical_alignment="center")
+with col_btn:
+    lancer = st.button("Analyser", type="primary")
+with col_hint:
+    st.write("Cliquez sur **Analyser** pour afficher le résultat (démo).")
 
-tab1, tab2 = st.tabs(["Détecté", "Original"])
+if lancer:
+    st.session_state.analyse_lancee = True
 
-with tab1:
-    st.subheader("Résultat de la détection")
+# ----------------- Affichage conditionnel : seulement après clic -----------------
+if st.session_state.analyse_lancee:
+    rapport = DEMO_TEXTE_DETECTE  # démo fixe
+    blocs = parser_rapport(rapport)
+    original = extraire_original(rapport)
 
-    for i, bloc in enumerate(blocs, start=1):
-        with st.container(border=True):
-            st.markdown(f"**Phrase {i}**")
-            st.write(bloc["phrase"])
+    tab1, tab2 = st.tabs(["Détecté", "Original"])
 
-            if bloc["messages"]:
-                st.markdown("**Observations**")
-                for msg in bloc["messages"]:
-                    st.warning(msg)
-            else:
-                st.info("Aucune observation pour cette phrase.")
+    with tab1:
+        st.subheader("Résultat de la détection")
 
-    st.divider()
-    st.text_area(
-        "Rapport complet (version texte)",
-        value=rapport,
-        height=220
+        for i, bloc in enumerate(blocs, start=1):
+            with st.container(border=True):
+                st.markdown(f"**Phrase {i}**")
+                st.write(bloc["phrase"])
+
+                if bloc["messages"]:
+                    st.markdown("**Observations**")
+                    for msg in bloc["messages"]:
+                        st.warning(msg)
+                else:
+                    st.info("Aucune observation pour cette phrase.")
+
+        st.divider()
+        st.text_area(
+            "Rapport complet (version texte)",
+            value=rapport,
+            height=220
+        )
+
+    with tab2:
+        st.subheader("Phrases originales")
+        st.markdown("Texte sans commentaires ni messages d’erreur.")
+        st.text_area(
+            "Texte original",
+            value=original,
+            height=420
+        )
+
+    st.download_button(
+        label="⬇️ Télécharger le rapport",
+        data=rapport.encode("utf-8"),
+        file_name="rapport_coordination_demo.txt",
+        mime="text/plain",
     )
-
-with tab2:
-    st.subheader("Phrases originales")
-    st.markdown("Texte sans commentaires ni messages d’erreur.")
-    st.text_area(
-        "Texte original",
-        value=original,
-        height=420
-    )
-
-st.download_button(
-    label="⬇️ Télécharger le rapport",
-    data=rapport.encode("utf-8"),
-    file_name="rapport_coordination_demo.txt",
-    mime="text/plain",
-)
+else:
+    st.info("Aucun résultat affiché pour le moment. Importez un fichier (facultatif), puis cliquez sur **Analyser**.")
